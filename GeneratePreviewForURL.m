@@ -29,6 +29,7 @@
 #include <QuickLook/QuickLook.h>
 
 #include <Cocoa/Cocoa.h>
+#include "pvr.h"
 
 /* -----------------------------------------------------------------------------
    Generate a preview for file
@@ -36,23 +37,64 @@
    This function's job is to create preview for designated file
    ----------------------------------------------------------------------------- */
 
-OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview, CFURLRef url, CFStringRef contentTypeUTI, CFDictionaryRef options)
+extern "C" OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview, CFURLRef url, CFStringRef contentTypeUTI, CFDictionaryRef options)
 {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    // Read the PVR file
+    PVRTexture pvr;
+
+    NSString *targetCFS = [[(NSURL *)url absoluteURL] path];
+    if(pvr.load(targetCFS.UTF8String)!=PVR_LOAD_OKAY)
+    {
+        [pool release];
+        return noErr;
+    }
 	
-    //#warning To complete your generator please implement the function GeneratePreviewForURL in GeneratePreviewForURL.c
-	
-	NSSize canvasSize = NSMakeSize(256.0f,256.0f);
+    // create the render context
+	NSSize canvasSize = NSMakeSize(pvr.width, pvr.height);
     CGContextRef cgContext = QLPreviewRequestCreateContext(preview, *(CGSize *)&canvasSize, false, NULL);
-	if(cgContext) {
+	if(cgContext) 
+    {
         NSGraphicsContext* context = [NSGraphicsContext graphicsContextWithGraphicsPort:(void *)cgContext flipped:NO];
 		
-		if(context) {
+		if(context) 
+        {
 			[NSGraphicsContext saveGraphicsState];
 			[NSGraphicsContext setCurrentContext:context];
 			[context saveGraphicsState];
 			
-			CGContextFillRect([context graphicsPort], CGRectMake(10,10,100,100));
+			int w = pvr.width;
+			int h = pvr.height;
+            uint8_t *buffer = pvr.data;
+			
+			//uint8_t *buffer = (uint8_t*)malloc(w*h*4);;
+			//memset(buffer, 0, sizeof(buffer));
+			//for(int y=0; y<h; ++y)
+			//for(int x=0; x<w; ++x)
+			//{
+			//	buffer[(x+y*w)*4+0] = x*2;
+			//	buffer[(x+y*w)*4+1] = y*2;
+			//	buffer[(x+y*w)*4+2] = 0;
+			//	buffer[(x+y*w)*4+3] = x*2;
+			//}
+			
+			CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, buffer, (w * h * 4), NULL);
+			
+			int bitsPerComponent = 8;
+			int bitsPerPixel = 32;
+			int bytesPerRow = 4 * w;
+			CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
+			CGBitmapInfo bitmapInfo = kCGBitmapByteOrderDefault| kCGImageAlphaLast;
+			CGColorRenderingIntent renderingIntent = kCGRenderingIntentDefault;
+			CGImageRef image = CGImageCreate(w, h, bitsPerComponent, 
+				bitsPerPixel, bytesPerRow, colorSpaceRef, bitmapInfo, provider, 
+				NULL, NO, renderingIntent);
+			CGContextTranslateCTM(cgContext, 0.0f, h);
+            CGContextScaleCTM(cgContext, 1.0f, -1.0f);
+			CGContextDrawImage((CGContext*)[context graphicsPort], CGRectMake(0,0,w-1,h-1), image);
+			//free(buffer);
+			//CGContextFillRect([context graphicsPort], CGRectMake(10,10,100,100));
 			//NSFont* font1= [NSFont fontWithName:@"Helvetica" size:9.0];
 			//[font1 setInContext:context];
 			//[@"test" drawAtPoint:NSMakePoint(100,100) withAttributes:nil];
@@ -69,7 +111,7 @@ OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview,
 	return noErr;
 }
 
-void CancelPreviewGeneration(void* thisInterface, QLPreviewRequestRef preview)
+extern "C" void CancelPreviewGeneration(void* thisInterface, QLPreviewRequestRef preview)
 {
     // implement only if supported
 }

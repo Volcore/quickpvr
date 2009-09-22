@@ -24,23 +24,47 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-#include <CoreFoundation/CoreFoundation.h>
-#include <CoreServices/CoreServices.h>
-#include <QuickLook/QuickLook.h>
+#ifndef PVR_H
+#define PVR_H
 
-/* -----------------------------------------------------------------------------
-    Generate a thumbnail for file
+#include <stdint.h>
 
-   This function's job is to create thumbnail for designated file as fast as possible
-   ----------------------------------------------------------------------------- */
-
-extern "C" OSStatus GenerateThumbnailForURL(void *thisInterface, QLThumbnailRequestRef thumbnail, CFURLRef url, CFStringRef contentTypeUTI, CFDictionaryRef options, CGSize maxSize)
+enum ePVRPixelType
 {
-    #warning To complete your generator please implement the function GenerateThumbnailForURL in GenerateThumbnailForURL.c
-    return noErr;
-}
+    PVR_PIXELTYPE_MASK  = 0xff,
+    PVR_TYPE_RGBA4444   = 0x10,
+    PVR_TYPE_RGBA5551   = 0x11,
+    PVR_TYPE_RGBA8888   = 0x12,
+    PVR_TYPE_RGB565     = 0x13,
+    PVR_TYPE_RGB555     = 0x14,
+    PVR_TYPE_RGB888     = 0x15,
+    PVR_TYPE_I8         = 0x16,
+    PVR_TYPE_AI8        = 0x17,
+    PVR_TYPE_PVRTC2     = 0x18,
+    PVR_TYPE_PVRTC4     = 0x19,
+};
 
-extern "C" void CancelThumbnailGeneration(void* thisInterface, QLThumbnailRequestRef thumbnail)
+enum ePVRLoadResult
 {
-    // implement only if supported
-}
+    PVR_LOAD_OKAY,
+    PVR_LOAD_INVALID_FILE,
+    PVR_LOAD_MORE_THAN_ONE_SURFACE,
+    PVR_LOAD_FILE_NOT_FOUND,
+    PVR_LOAD_UNKNOWN_TYPE,
+    PVR_LOAD_UNKNOWN_ERROR,
+};
+
+struct PVRTexture
+{
+    PVRTexture();
+    ~PVRTexture();
+    ePVRLoadResult load(const char *const path);
+
+    unsigned int width;
+    unsigned int height;
+
+    uint8_t *data;
+
+};
+
+#endif
