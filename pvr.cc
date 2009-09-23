@@ -177,9 +177,6 @@ ePVRLoadResult PVRTexture::load(const char *const path)
                 unsigned short v = *(unsigned short*)in;
                 in += 2;
 
-                //uint8_t r = (v&0x001f)<<3;
-                //uint8_t g = (v&0x03e0)>>2;
-                //uint8_t b = (v&0x7c00)>>7;
                 uint8_t r = (v&0xf800)>>8;
                 uint8_t g = (v&0x07c0)>>3;
                 uint8_t b = (v&0x003e)<<2;
