@@ -42,6 +42,8 @@ enum ePVRPixelType
     PVR_TYPE_AI8        = 0x17,
     PVR_TYPE_PVRTC2     = 0x18,
     PVR_TYPE_PVRTC4     = 0x19,
+
+    PVR_MAX_TYPE        = 0x20,
 };
 
 enum ePVRLoadResult
@@ -62,9 +64,11 @@ struct PVRTexture
 
     unsigned int width;
     unsigned int height;
+    unsigned int numMips;
+    unsigned int bpp;
+    const char *format;
 
     uint8_t *data;
-
 };
 
 #endif

@@ -29,6 +29,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+const char *typeStrings[] =
+{
+    "<invalid>", "<invalid>", "<invalid>", "<invalid>",
+    "<invalid>", "<invalid>", "<invalid>", "<invalid>",
+    "<invalid>", "<invalid>", "<invalid>", "<invalid>",
+    "<invalid>", "<invalid>", "<invalid>", "<invalid>",
+    "RGBA4444", "RGBA5551", "RGBA8888", "RGB565",
+    "RGB555", "RGB888", "I8", "AI8",
+    "PVRTC2", "PVRTC4"
+};
+
 typedef struct PVRHeader
 {
     uint32_t      size;
@@ -104,16 +115,28 @@ ePVRLoadResult PVRTexture::load(const char *const path)
         return PVR_LOAD_MORE_THAN_ONE_SURFACE;
     }
 
+    if(this->width*this->height*this->bpp/8 > length-sizeof(PVRHeader))
+    {
+        return PVR_LOAD_INVALID_FILE;
+    }
+
     int ptype = header->flags & PVR_PIXELTYPE_MASK;
     printf("Pixeltype: %i\n", ptype);
 
     this->width = header->width;
     this->height = header->height;
+    this->numMips = header->mipcount;
+    this->bpp = header->bpp;
 
     printf("Width: %i\n", this->width);
     printf("Height: %i\n", this->height);
 
     this->data = (uint8_t*)malloc(this->width*this->height*4);
+
+    if(ptype<PVR_MAX_TYPE)
+        this->format = typeStrings[ptype];
+    else
+        this->format = "<unknown>";
 
     switch(ptype)
     {
@@ -139,6 +162,53 @@ ePVRLoadResult PVRTexture::load(const char *const path)
             }
         }
         break;
+    // PVR_TYPE_RGBA5551
+    case PVR_TYPE_RGBA8888:
+        {
+            uint8_t *in  = p;
+            uint8_t *out = this->data;
+            for(int y=0; y<this->height; ++y)
+            for(int x=0; x<this->width; ++x)
+            {
+                *out++ = *in++;
+                *out++ = *in++;
+                *out++ = *in++;
+                *out++ = *in++;
+            }
+        }
+        break;
+    // PVR_TYPE_RGB565
+    // PVR_TYPE_RGB555
+    case PVR_TYPE_RGB888:
+        {
+            uint8_t *in  = p;
+            uint8_t *out = this->data;
+            for(int y=0; y<this->height; ++y)
+            for(int x=0; x<this->width; ++x)
+            {
+                *out++ = *in++;
+                *out++ = *in++;
+                *out++ = *in++;
+                *out++ = 255;
+            }
+        }
+        break;
+    case PVR_TYPE_I8:
+        {
+            uint8_t *in  = p;
+            uint8_t *out = this->data;
+            for(int y=0; y<this->height; ++y)
+            for(int x=0; x<this->width; ++x)
+            {
+                int i = *in++;
+
+                *out++ = i;
+                *out++ = i;
+                *out++ = i;
+                *out++ = 255;
+            }
+        }
+        break;
     case PVR_TYPE_AI8:
         {
             uint8_t *in  = p;
@@ -156,9 +226,12 @@ ePVRLoadResult PVRTexture::load(const char *const path)
             }
         }
         break;
+    // PVR_TYPE_PVRTC2
+    // PVR_TYPE_PVRTC4
     default:
         printf("unknown PVR type %i!\n", ptype);
         free(this->data);
+        this->data = NULL;
         free(data);
         return PVR_LOAD_UNKNOWN_TYPE;
     }

@@ -45,14 +45,15 @@ extern "C" OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestR
     PVRTexture pvr;
 
     NSString *targetCFS = [[(NSURL *)url absoluteURL] path];
-    if(pvr.load(targetCFS.UTF8String)!=PVR_LOAD_OKAY)
+    int res = pvr.load(targetCFS.UTF8String);
+    if(res!=PVR_LOAD_OKAY && res!=PVR_LOAD_UNKNOWN_TYPE)
     {
         [pool release];
         return noErr;
     }
 	
     // create the render context
-	NSSize canvasSize = NSMakeSize(pvr.width, pvr.height);
+	NSSize canvasSize = NSMakeSize(pvr.width+100, pvr.height);
     CGContextRef cgContext = QLPreviewRequestCreateContext(preview, *(CGSize *)&canvasSize, false, NULL);
 	if(cgContext) 
     {
@@ -66,38 +67,54 @@ extern "C" OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestR
 			
 			int w = pvr.width;
 			int h = pvr.height;
-            uint8_t *buffer = pvr.data;
-			
-			//uint8_t *buffer = (uint8_t*)malloc(w*h*4);;
-			//memset(buffer, 0, sizeof(buffer));
-			//for(int y=0; y<h; ++y)
-			//for(int x=0; x<w; ++x)
-			//{
-			//	buffer[(x+y*w)*4+0] = x*2;
-			//	buffer[(x+y*w)*4+1] = y*2;
-			//	buffer[(x+y*w)*4+2] = 0;
-			//	buffer[(x+y*w)*4+3] = x*2;
-			//}
-			
-			CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, buffer, (w * h * 4), NULL);
-			
-			int bitsPerComponent = 8;
-			int bitsPerPixel = 32;
-			int bytesPerRow = 4 * w;
-			CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
-			CGBitmapInfo bitmapInfo = kCGBitmapByteOrderDefault| kCGImageAlphaLast;
-			CGColorRenderingIntent renderingIntent = kCGRenderingIntentDefault;
-			CGImageRef image = CGImageCreate(w, h, bitsPerComponent, 
-				bitsPerPixel, bytesPerRow, colorSpaceRef, bitmapInfo, provider, 
-				NULL, NO, renderingIntent);
-			CGContextTranslateCTM(cgContext, 0.0f, h);
-            CGContextScaleCTM(cgContext, 1.0f, -1.0f);
-			CGContextDrawImage((CGContext*)[context graphicsPort], CGRectMake(0,0,w-1,h-1), image);
-			//free(buffer);
-			//CGContextFillRect([context graphicsPort], CGRectMake(10,10,100,100));
-			//NSFont* font1= [NSFont fontWithName:@"Helvetica" size:9.0];
-			//[font1 setInContext:context];
-			//[@"test" drawAtPoint:NSMakePoint(100,100) withAttributes:nil];
+            if(pvr.data)
+            {
+                uint8_t *buffer = pvr.data;
+			    
+			    CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, buffer, (w * h * 4), NULL);
+			    
+			    int bitsPerComponent = 8;
+			    int bitsPerPixel = 32;
+			    int bytesPerRow = 4 * w;
+			    CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
+			    CGBitmapInfo bitmapInfo = kCGBitmapByteOrderDefault| kCGImageAlphaLast;
+			    CGColorRenderingIntent renderingIntent = kCGRenderingIntentDefault;
+			    CGImageRef image = CGImageCreate(w, h, bitsPerComponent, 
+			    	bitsPerPixel, bytesPerRow, colorSpaceRef, bitmapInfo, provider, 
+			    	NULL, NO, renderingIntent);
+			    CGContextTranslateCTM(cgContext, 0.0f, h);
+                CGContextScaleCTM(cgContext, 1.0f, -1.0f);
+			    CGContextDrawImage((CGContext*)[context graphicsPort], CGRectMake(0,0,w-1,h-1), image);
+                CGContextScaleCTM(cgContext, 1.0f, -1.0f);
+			    CGContextTranslateCTM(cgContext, 0.0f, -h);
+            }
+
+            CGContextSelectFont (cgContext, "Helvetica", 10, kCGEncodingMacRoman);
+            CGContextSetTextDrawingMode (cgContext, kCGTextFill);
+            CGContextSetRGBFillColor (cgContext, 1.0, 1.0, 1.0, 1.0);
+            CGContextSetTextPosition (cgContext, w, h-10.0);
+            char str[128];
+            snprintf(str, 128, "%i x %i", w, h);
+            CGContextShowText (cgContext, str, strlen(str));
+
+            CGContextSetTextPosition (cgContext, w, h-22.0);
+            snprintf(str, 128, "%i bpp", pvr.bpp);
+            CGContextShowText (cgContext, str, strlen(str));
+
+            CGContextSetTextPosition (cgContext, w, h-34.0);
+            snprintf(str, 128, "Format: %s", pvr.format);
+            CGContextShowText (cgContext, str, strlen(str));
+
+            CGContextSetTextPosition (cgContext, w, h-46.0);
+            snprintf(str, 128, "Mipmaps: %i", pvr.numMips);
+            CGContextShowText (cgContext, str, strlen(str));
+
+            if(pvr.data==NULL)
+            {
+                CGContextSetTextPosition (cgContext, w, h-59.0);
+                snprintf(str, 128, "(unsupported)");
+                CGContextShowText (cgContext, str, strlen(str));
+            }
 		
 			[context restoreGraphicsState];
 			[NSGraphicsContext restoreGraphicsState];
