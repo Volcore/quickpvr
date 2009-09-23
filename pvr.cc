@@ -68,6 +68,11 @@ PVRTexture::~PVRTexture()
         free(this->data);
 }
 
+/*******************************************************************************
+  This PVR code is loosely based on Wolfgang Engel's Oolong Engine:
+
+        http://oolongengine.com/
+ ******************************************************************************/
 ePVRLoadResult PVRTexture::load(const char *const path)
 {
     uint8_t *data;
@@ -115,7 +120,7 @@ ePVRLoadResult PVRTexture::load(const char *const path)
         return PVR_LOAD_MORE_THAN_ONE_SURFACE;
     }
 
-    if(this->width*this->height*this->bpp/8 > length-sizeof(PVRHeader))
+    if(header->width*header->height*header->bpp/8 > length-sizeof(PVRHeader))
     {
         return PVR_LOAD_INVALID_FILE;
     }
@@ -162,7 +167,28 @@ ePVRLoadResult PVRTexture::load(const char *const path)
             }
         }
         break;
-    // PVR_TYPE_RGBA5551
+    case PVR_TYPE_RGBA5551:
+        {
+            uint8_t *in  = p;
+            uint8_t *out = this->data;
+            for(int y=0; y<this->height; ++y)
+            for(int x=0; x<this->width; ++x)
+            {
+                short v = *(short*)in;
+                in += 2;
+
+                uint8_t r = (v&0x001f)<<3;
+                uint8_t g = (v&0x03e0)>>2;
+                uint8_t b = (v&0x7c00)>>7;
+                uint8_t a = (v&0x8000)?255:0;
+
+                *out++ = r;
+                *out++ = g;
+                *out++ = b;
+                *out++ = a;
+            }
+        }
+        break;
     case PVR_TYPE_RGBA8888:
         {
             uint8_t *in  = p;
@@ -177,8 +203,57 @@ ePVRLoadResult PVRTexture::load(const char *const path)
             }
         }
         break;
-    // PVR_TYPE_RGB565
-    // PVR_TYPE_RGB555
+    case PVR_TYPE_RGB565:
+        {
+            uint8_t *in  = p;
+            uint8_t *out = this->data;
+            for(int y=0; y<this->height; ++y)
+            for(int x=0; x<this->width; ++x)
+            {
+                short v = *(short*)in;
+                in += 2;
+                
+
+                uint8_t b = (v&0x001f)<<3;
+                uint8_t g = (v&0x07e0)>>3;
+                uint8_t r = (v&0xf800)>>8;
+                uint8_t a = 255;
+
+                if(x==128&&y==128)
+                {
+                    printf("%04x\n", v);
+                    printf("%i %i %i\n", r, g, b);
+                }
+                
+                *out++ = r;
+                *out++ = g;
+                *out++ = b;
+                *out++ = a;
+            }
+        }
+        break;
+    case PVR_TYPE_RGB555:
+        {
+            uint8_t *in  = p;
+            uint8_t *out = this->data;
+            for(int y=0; y<this->height; ++y)
+            for(int x=0; x<this->width; ++x)
+            {
+                short v = *(short*)in;
+                in += 2;
+
+                uint8_t r = (v&0x001f)<<3;
+                uint8_t g = (v&0x03e0)>>2;
+                uint8_t b = (v&0x7c00)>>7;
+                uint8_t a = 255;
+
+                *out++ = r;
+                *out++ = g;
+                *out++ = b;
+                *out++ = a;
+            }
+        }
+        break;
     case PVR_TYPE_RGB888:
         {
             uint8_t *in  = p;
@@ -216,8 +291,8 @@ ePVRLoadResult PVRTexture::load(const char *const path)
             for(int y=0; y<this->height; ++y)
             for(int x=0; x<this->width; ++x)
             {
-                int a = *in++;
                 int i = *in++;
+                int a = *in++;
 
                 *out++ = i;
                 *out++ = i;
@@ -238,108 +313,4 @@ ePVRLoadResult PVRTexture::load(const char *const path)
 
     free(data);
     return PVR_LOAD_OKAY;
-
-//
-//    int compressed = 0;
-//    int format;
-//    int type;
-//    int alpha = header->amask>0;
-//    int size = header->width*header->height*header->bpp/8;
-//
-//    switch( ptype )
-//    {
-//    case PVR_TYPE_RGBA4444:
-//        format = GL_UNSIGNED_SHORT_4_4_4_4;
-//        type = GL_RGBA;
-//        break;
-//    case PVR_TYPE_RGBA5551:
-//        format = GL_UNSIGNED_SHORT_5_5_5_1;
-//        type = GL_RGBA;
-//        break;
-//    case PVR_TYPE_RGBA8888:
-//        format = GL_UNSIGNED_BYTE;
-//        type = GL_RGBA;
-//        break;
-//    case PVR_TYPE_RGB565:
-//        format = GL_UNSIGNED_SHORT_5_6_5;
-//        type = GL_RGB;
-//        break;
-//    case PVR_TYPE_RGB888:
-//        format = GL_UNSIGNED_BYTE;
-//        type = GL_RGB;
-//        break;
-//    case PVR_TYPE_I8:
-//        format = GL_UNSIGNED_BYTE;
-//        type = GL_LUMINANCE;
-//        break;
-//    case PVR_TYPE_AI8:
-//        format = GL_UNSIGNED_BYTE;
-//        type = GL_LUMINANCE_ALPHA;
-//        //printf( "ai8 %dx%d, %d\n", header->height, header->width, size );
-//        break;
-//    case PVR_TYPE_PVRTC2:
-//        format = alpha?GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG:GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG;
-//        type = alpha?GL_RGBA:GL_RGB;
-//        compressed = 1;
-//        size = MAX( header->width*header->height*header->bpp/8, 32 );
-//        //printf( "PVR 2bpp alpha %d %dx%d, %d\n", alpha, header->height, header->width, size );
-//        break;
-//    case PVR_TYPE_PVRTC4:
-//        format = alpha?GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG:GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG;
-//        type = alpha?GL_RGBA:GL_RGB;
-//        compressed = 1;
-//        size = MAX( header->width*header->height*header->bpp/8, 32 );
-//        //printf( "PVR 4bpp alpha %d %dx%d, %d\n", alpha, header->height, header->width, size );
-//        break;
-//    default:
-//        printf( "Failed to load .pvr file: unknown format 0x%02x!\n", ptype );
-//        free( data );
-//        return false;
-//    }
-//
-//    if( compressed == 1 )
-//    {
-//        if( header->height != header->width )
-//            printf( "Problem loading .pvr file: not a square texture!\n" );
-//    }
-//
-//    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_FALSE );
-//
-//    int totalread = 0;
-//
-//    for( int i=0; i<=header->mipcount; ++i )
-//    {
-//        if( compressed )
-//        {
-//            int w = header->width>>i;
-//            int fsize = MAX( w*w*header->bpp/8, 32 );
-//            glCompressedTexImage2D( GL_TEXTURE_2D, i, format, w, w, 0, fsize, p
-//                    );
-//            p += fsize;
-//            textureMemory += fsize;
-//            compressedTextureMemory += fsize;
-//            totalread += fsize;
-//        } else
-//        {
-//            int w = header->width>>i;
-//            int h = header->height>>i;
-//            int fsize = (w*h*header->bpp+7)/8;
-//            glTexImage2D( GL_TEXTURE_2D, i, type, w, h, 0, type, format, p );
-//            p += fsize;
-//            textureMemory += fsize;
-//            uncompressedTextureMemory += fsize;
-//            totalread += fsize;
-//        }
-//    }
-//
-//    free( data );
-//
-//    /** Removed this check, because it seems the exporter writes a bogus
-//     * texdatasize into the header-> */
-//    //if( totalread != header->texdatasize )
-//    //    printf( "Warning: loading PVR file '%s', loaded tex size (%u) does not "
-//    //            "match size in header (%u), compressed %i\n", name, totalread,
-//    //            header->texdatasize, compressed );
-//
-//    return true;
 }
