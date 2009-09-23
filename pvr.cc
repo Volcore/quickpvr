@@ -174,13 +174,16 @@ ePVRLoadResult PVRTexture::load(const char *const path)
             for(int y=0; y<this->height; ++y)
             for(int x=0; x<this->width; ++x)
             {
-                short v = *(short*)in;
+                unsigned short v = *(unsigned short*)in;
                 in += 2;
 
-                uint8_t r = (v&0x001f)<<3;
-                uint8_t g = (v&0x03e0)>>2;
-                uint8_t b = (v&0x7c00)>>7;
-                uint8_t a = (v&0x8000)?255:0;
+                //uint8_t r = (v&0x001f)<<3;
+                //uint8_t g = (v&0x03e0)>>2;
+                //uint8_t b = (v&0x7c00)>>7;
+                uint8_t r = (v&0xf800)>>8;
+                uint8_t g = (v&0x07c0)>>3;
+                uint8_t b = (v&0x003e)<<2;
+                uint8_t a = (v&0x0001)?255:0;
 
                 *out++ = r;
                 *out++ = g;
