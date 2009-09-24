@@ -12,6 +12,7 @@
 		8D576312048677EA00EA77CD /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 08FB77B6FE84183AC02AAC07 /* main.c */; settings = {ATTRIBUTES = (); }; };
 		8D576314048677EA00EA77CD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AA1909FFE8422F4C02AAC07 /* CoreFoundation.framework */; };
 		8D5B49A804867FD3000E48DA /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 8D5B49A704867FD3000E48DA /* InfoPlist.strings */; };
+		9F1DF91A106B6628009B4B0A /* pvrtc.cc in Sources */ = {isa = PBXBuildFile; fileRef = 9F1DF919106B6628009B4B0A /* pvrtc.cc */; };
 		9FAA35F6106968E800A0F398 /* pvr.h in Headers */ = {isa = PBXBuildFile; fileRef = 9FAA35F4106968E800A0F398 /* pvr.h */; };
 		9FAA35F7106968E800A0F398 /* pvr.cc in Sources */ = {isa = PBXBuildFile; fileRef = 9FAA35F5106968E800A0F398 /* pvr.cc */; };
 		9FCFEAFE1067BFA300EC5BB5 /* quickpvr.qlgenerator in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8D576316048677EA00EA77CD /* quickpvr.qlgenerator */; };
@@ -42,6 +43,7 @@
 		61E3BCFA0870B4F2002186A0 /* GenerateThumbnailForURL.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 30; path = GenerateThumbnailForURL.m; sourceTree = "<group>"; };
 		8D576316048677EA00EA77CD /* quickpvr.qlgenerator */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = quickpvr.qlgenerator; sourceTree = BUILT_PRODUCTS_DIR; };
 		8D576317048677EA00EA77CD /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9F1DF919106B6628009B4B0A /* pvrtc.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pvrtc.cc; sourceTree = "<group>"; };
 		9FAA35F4106968E800A0F398 /* pvr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pvr.h; sourceTree = "<group>"; };
 		9FAA35F5106968E800A0F398 /* pvr.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pvr.cc; sourceTree = "<group>"; };
 		9FCFEB2C1067C17700EC5BB5 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
@@ -101,6 +103,7 @@
 		08FB77AFFE84173DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				9F1DF919106B6628009B4B0A /* pvrtc.cc */,
 				9FAA35F4106968E800A0F398 /* pvr.h */,
 				9FAA35F5106968E800A0F398 /* pvr.cc */,
 				61E3BCFA0870B4F2002186A0 /* GenerateThumbnailForURL.m */,
@@ -200,6 +203,7 @@
 				2C05A19C06CAA52B00D84F6F /* GeneratePreviewForURL.m in Sources */,
 				61E3BCFB0870B4F2002186A0 /* GenerateThumbnailForURL.m in Sources */,
 				9FAA35F7106968E800A0F398 /* pvr.cc in Sources */,
+				9F1DF91A106B6628009B4B0A /* pvrtc.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
