@@ -89,7 +89,7 @@ extern "C" OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestR
 			    CGContextTranslateCTM(cgContext, 0.0f, -h);
             }
 
-            CGContextSelectFont (cgContext, "Helvetica", 10, kCGEncodingMacRoman);
+            CGContextSelectFont (cgContext, "Lucida Grande Bold", 10, kCGEncodingMacRoman);
             CGContextSetTextDrawingMode (cgContext, kCGTextFill);
             CGContextSetRGBFillColor (cgContext, 1.0, 1.0, 1.0, 1.0);
             CGContextSetTextPosition (cgContext, w, h-10.0);
