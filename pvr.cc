@@ -43,6 +43,8 @@ typedef struct
 	uint32_t PackedData[2];
 }AMTC_BLOCK_STRUCT;
 
+const unsigned int PVRTEX_CUBEMAP               = (1<<12);
+
 extern void Decompress(AMTC_BLOCK_STRUCT *pCompressedData,
 					   const int Do2bitMode,
 					   const int XDim,
@@ -231,7 +233,12 @@ ePVRLoadResult PVRTexture::load(const char *const path)
         free( data );
         return PVR_LOAD_INVALID_FILE;
     }
-
+    
+    if(header->numtex<1)
+    {
+        header->numtex = (header->flags & PVRTEX_CUBEMAP)?6:1;
+    }
+    
     if( header->numtex != 1 )
     {
         free( data );
@@ -244,7 +251,7 @@ ePVRLoadResult PVRTexture::load(const char *const path)
     }
 
     int ptype = header->flags & PVR_PIXELTYPE_MASK;
-    printf("Pixeltype: %i\n", ptype);
+    printf("Pixeltype: 0x%02x\n", ptype);
 
     this->width = header->width;
     this->height = header->height;
