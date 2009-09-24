@@ -29,6 +29,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/*******************************************************************************
+  This PVR code is loosely based on Wolfgang Engel's Oolong Engine:
+
+        http://oolongengine.com/
+
+    Thank you, Wolfgang!
+ ******************************************************************************/
+
 const char *typeStrings[] =
 {
     "<invalid>", "<invalid>", "<invalid>", "<invalid>",
@@ -68,11 +76,83 @@ PVRTexture::~PVRTexture()
         free(this->data);
 }
 
-/*******************************************************************************
-  This PVR code is loosely based on Wolfgang Engel's Oolong Engine:
+void get5554(uint16_t c, uint8_t& r, uint8_t& g, uint8_t& b, uint8_t& a, bool
+        first)    
+{
+    if(c&0x8000)
+    {
+        // opaque mode
+        r = (c>>10)&0x1f;
+        g = (c>> 5)&0x1f;
+        b = (c    )&0x1f;
+        if(first)
+            b |= b>>4;
+        a = 0xf;
+    } else
+    {
+        // alpha mode
+        r = (c>>7)&0x1e;
+        r |= r>>4;
 
-        http://oolongengine.com/
- ******************************************************************************/
+        g = (c>>3)&0x1e;
+        g |= g>>4;
+
+        b = (c&0xf)<<1;
+
+        if(first)
+            b |= b>>3;
+        else
+            b |= b>>4;
+
+        a = (c>>11)&0xe;
+    }
+}
+
+void decompressPVRTC(uint8_t *target, uint8_t* data, bool highPrecision, int
+        width, int height)
+{
+    // 4x4 texel block structure
+    uint64_t *blocks = (uint64_t*)data;
+
+    int bwidth = width>>2;
+    int bheight = height>>2;
+
+    for(int j=0; j<bheight; ++j)
+    for(int i=0; i<bwidth; ++i)
+    {
+        int bx = i<<2;
+        int by = j<<2;
+
+        uint64_t block = blocks[i+j*bwidth];
+        uint32_t colors = block>>32;
+        uint32_t moddata = block&0xffffffff;
+
+        uint16_t A = (colors&0x0000fffe);
+        uint16_t B = (colors&0xffff0000)>>16;
+        int modmode = colors&1;
+
+        uint8_t Ar, Ag, Ab, Aa;
+        get5554(A, Ar, Ag, Ab, Aa, true);
+
+        uint8_t Br, Bg, Bb, Ba;
+        get5554(B, Br, Bg, Bb, Ba, false);
+
+        for(int oy=0; oy<4; ++oy)
+        for(int ox=0; ox<4; ++ox)
+        {
+            int x = bx+ox;
+            int y = by+oy;
+            int baseindex = x+y*width;
+            int tidx = (baseindex*4);
+
+            target[tidx+0] = Ar<<3;
+            target[tidx+1] = Ag<<3;
+            target[tidx+2] = Ab<<3;
+            target[tidx+3] = Aa<<4;
+        }
+    }
+}
+
 ePVRLoadResult PVRTexture::load(const char *const path)
 {
     uint8_t *data;
@@ -301,8 +381,16 @@ ePVRLoadResult PVRTexture::load(const char *const path)
             }
         }
         break;
-    // PVR_TYPE_PVRTC2
-    // PVR_TYPE_PVRTC4
+    case PVR_TYPE_PVRTC2:
+        {
+            decompressPVRTC(this->data, p, false, this->width,
+                    this->height);
+        } break;
+    case PVR_TYPE_PVRTC4:
+        {
+            decompressPVRTC(this->data, p, false, this->width,
+                    this->height);
+        } break;
     default:
         printf("unknown PVR type %i!\n", ptype);
         free(this->data);
