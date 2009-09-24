@@ -37,6 +37,9 @@
    This function's job is to create preview for designated file
    ----------------------------------------------------------------------------- */
 
+// uncomment this to show some image info as well
+//#define SHOW_INFO
+
 extern "C" OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestRef preview, CFURLRef url, CFStringRef contentTypeUTI, CFDictionaryRef options)
 {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
@@ -53,7 +56,11 @@ extern "C" OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestR
     }
 	
     // create the render context
+#ifdef SHOW_INFO
 	NSSize canvasSize = NSMakeSize(pvr.width+100, pvr.height);
+#else
+	NSSize canvasSize = NSMakeSize(pvr.width, pvr.height);
+#endif
     CGContextRef cgContext = QLPreviewRequestCreateContext(preview, *(CGSize *)&canvasSize, false, NULL);
 	if(cgContext) 
     {
@@ -89,6 +96,7 @@ extern "C" OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestR
 			    CGContextTranslateCTM(cgContext, 0.0f, -h);
             }
 
+#ifdef SHOW_INFO
             CGContextSelectFont (cgContext, "Lucida Grande Bold", 10, kCGEncodingMacRoman);
             CGContextSetTextDrawingMode (cgContext, kCGTextFill);
             CGContextSetRGBFillColor (cgContext, 1.0, 1.0, 1.0, 1.0);
@@ -115,6 +123,7 @@ extern "C" OSStatus GeneratePreviewForURL(void *thisInterface, QLPreviewRequestR
                 snprintf(str, 128, "(unsupported)");
                 CGContextShowText (cgContext, str, strlen(str));
             }
+#endif
 		
 			[context restoreGraphicsState];
 			[NSGraphicsContext restoreGraphicsState];

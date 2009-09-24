@@ -29,6 +29,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+unsigned int countBits(unsigned int x)
+{
+    x  = x - ((x >> 1) & 0x55555555);
+    x  = (x & 0x33333333) + ((x >> 2) & 0x33333333);
+    x  = x + (x >> 4);
+    x &= 0xF0F0F0F;
+    return (x * 0x01010101) >> 24;
+}
+
 typedef struct
 {
 	uint32_t PackedData[2];
@@ -88,6 +97,92 @@ PVRTexture::~PVRTexture()
         free(this->data);
 }
 
+bool PVRTexture::loadApplePVRTC(uint8_t* data, int size)
+{
+    // additional heuristic
+    if(size>sizeof(PVRHeader))
+    {
+        PVRHeader *header = (PVRHeader *)data;
+        if( header->size == sizeof( PVRHeader )
+        &&( header->magic == 0x21525650 ) )
+            // this looks more like a PowerVR file.
+            return false;
+    }
+
+    // default to 2bpp, 8x8
+    int mode = 1;
+    int res = 8;
+
+    // this is a tough one, could be 2bpp 8x8, 4bpp 8x8
+    if(size==32)
+    {
+        // assume 4bpp, 8x8
+        mode = 0;
+        res = 8;
+    } else
+    {
+        // Detect if it's 2bpp or 4bpp
+        int shift = 0;
+        int test2bpp = 0x40; // 16x16
+        int test4bpp = 0x80; // 16x16
+
+        while(shift<10)
+        {
+            int s2 = shift<<1;
+
+            if((test2bpp<<s2)&size)
+            {
+                res = 16<<shift;
+                mode = 1;
+                this->format = "PVRTC2";
+                break;
+            }
+
+            if((test4bpp<<s2)&size)
+            {
+                res = 16<<shift;
+                mode = 0;
+                this->format = "PVRTC4";
+                break;
+            }
+
+
+            ++shift;
+        }
+
+        if(shift==10)
+            // no mode could be found.
+            return false;
+        printf("detected apple %ix%i %i bpp pvrtc\n", res, res, mode*2+2);
+    }
+
+    // there is no reliable way to know if it's a 2bpp or 4bpp file. Assuming
+    this->width = res;
+    this->height = res;
+    this->bpp = (mode+1)*2;
+    this->numMips = 0;
+    this->data = (uint8_t*)malloc(this->width*this->height*4);
+
+    Decompress((AMTC_BLOCK_STRUCT*)data, mode, this->width,
+                    this->height, 0, this->data);
+
+    for(int y=0; y<res/2; ++y)
+    for(int x=0; x<res; ++x)
+    {
+        int src = (x+y*res)*4;
+        int dst = (x+(res-y-1)*res)*4;
+
+        for(int c=0; c<4; ++c)
+        {
+            uint8_t tmp = this->data[src+c];
+            this->data[src+c] = this->data[dst+c];
+            this->data[dst+c] = tmp;
+        }
+    }
+
+    return true;
+}
+
 ePVRLoadResult PVRTexture::load(const char *const path)
 {
     uint8_t *data;
@@ -105,6 +200,14 @@ ePVRLoadResult PVRTexture::load(const char *const path)
     fread(data, 1, length, fp);
 
     fclose(fp);
+
+    // use a heuristic to detect potential apple PVRTC formats
+    if(countBits(length)==1)
+    {
+        // very likely to be apple PVRTC
+        if(loadApplePVRTC(data, length))
+            return PVR_LOAD_OKAY;
+    }
 
     if(length<sizeof(PVRHeader))
     {

@@ -28,6 +28,9 @@
 #include <CoreServices/CoreServices.h>
 #include <QuickLook/QuickLook.h>
 
+#include <Cocoa/Cocoa.h>
+#include "pvr.h"
+
 /* -----------------------------------------------------------------------------
     Generate a thumbnail for file
 
@@ -36,9 +39,65 @@
 
 extern "C" OSStatus GenerateThumbnailForURL(void *thisInterface, QLThumbnailRequestRef thumbnail, CFURLRef url, CFStringRef contentTypeUTI, CFDictionaryRef options, CGSize maxSize)
 {
-    // Not implemented yet
-    #warning To complete your generator please implement the function GenerateThumbnailForURL in GenerateThumbnailForURL.c
-    return noErr;
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    // Read the PVR file
+    PVRTexture pvr;
+
+    NSString *targetCFS = [[(NSURL *)url absoluteURL] path];
+    int res = pvr.load(targetCFS.UTF8String);
+    if(res!=PVR_LOAD_OKAY && res!=PVR_LOAD_UNKNOWN_TYPE)
+    {
+        [pool release];
+        return noErr;
+    }
+	
+    // create the render context
+	NSSize canvasSize = NSMakeSize(pvr.width, pvr.height);
+    CGContextRef cgContext = QLThumbnailRequestCreateContext(thumbnail, *(CGSize *)&canvasSize, false, NULL);
+	if(cgContext) 
+    {
+        NSGraphicsContext* context = [NSGraphicsContext graphicsContextWithGraphicsPort:(void *)cgContext flipped:NO];
+		
+		if(context) 
+        {
+			[NSGraphicsContext saveGraphicsState];
+			[NSGraphicsContext setCurrentContext:context];
+			[context saveGraphicsState];
+			
+			int w = pvr.width;
+			int h = pvr.height;
+            if(pvr.data)
+            {
+                uint8_t *buffer = pvr.data;
+			    
+			    CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, buffer, (w * h * 4), NULL);
+			    
+			    int bitsPerComponent = 8;
+			    int bitsPerPixel = 32;
+			    int bytesPerRow = 4 * w;
+			    CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
+			    CGBitmapInfo bitmapInfo = kCGBitmapByteOrderDefault| kCGImageAlphaLast;
+			    CGColorRenderingIntent renderingIntent = kCGRenderingIntentDefault;
+			    CGImageRef image = CGImageCreate(w, h, bitsPerComponent, 
+			    	bitsPerPixel, bytesPerRow, colorSpaceRef, bitmapInfo, provider, 
+			    	NULL, NO, renderingIntent);
+			    CGContextTranslateCTM(cgContext, 0.0f, h);
+                CGContextScaleCTM(cgContext, 1.0f, -1.0f);
+			    CGContextDrawImage((CGContext*)[context graphicsPort], CGRectMake(0,0,w-1,h-1), image);
+                CGContextScaleCTM(cgContext, 1.0f, -1.0f);
+			    CGContextTranslateCTM(cgContext, 0.0f, -h);
+            }
+			[context restoreGraphicsState];
+			[NSGraphicsContext restoreGraphicsState];
+		}
+	
+        QLThumbnailRequestFlushContext(thumbnail, cgContext);
+        CFRelease(cgContext);
+    }
+	
+	[pool release];
+	return noErr;
 }
 
 extern "C" void CancelThumbnailGeneration(void* thisInterface, QLThumbnailRequestRef thumbnail)
