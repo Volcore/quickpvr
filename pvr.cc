@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <map>
 
 unsigned int countBits(unsigned int x)
 {
@@ -185,37 +186,14 @@ bool PVRTexture::loadApplePVRTC(uint8_t* data, int size)
     return true;
 }
 
-ePVRLoadResult PVRTexture::load(const char *const path)
-{
-    uint8_t *data;
-    unsigned int length;
-
-    FILE *fp = fopen(path, "rb");
-    if(fp==NULL)
-        return PVR_LOAD_FILE_NOT_FOUND;
-
-    fseek(fp, 0, SEEK_END);
-    length = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-
-    data = (uint8_t*)malloc(length);
-    fread(data, 1, length, fp);
-
-    fclose(fp);
-
-    // use a heuristic to detect potential apple PVRTC formats
-    if(countBits(length)==1)
-    {
-        // very likely to be apple PVRTC
-        if(loadApplePVRTC(data, length))
-            return PVR_LOAD_OKAY;
-    }
-
+ePVRLoadResult PVRTexture::loadPVR2(uint8_t *data, int length) {
     if(length<sizeof(PVRHeader))
     {
         free(data);
         return PVR_LOAD_INVALID_FILE;
     }
+
+
 
     // parse the header
     uint8_t* p = data;
@@ -443,7 +421,305 @@ ePVRLoadResult PVRTexture::load(const char *const path)
         free(data);
         return PVR_LOAD_UNKNOWN_TYPE;
     }
-
     free(data);
     return PVR_LOAD_OKAY;
 }
+
+ePVRLoadResult PVRTexture::load(const char *const path)
+{
+    uint8_t *data;
+    unsigned int length;
+
+    FILE *fp = fopen(path, "rb");
+    if(fp==NULL)
+        return PVR_LOAD_FILE_NOT_FOUND;
+
+    fseek(fp, 0, SEEK_END);
+    length = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    data = (uint8_t*)malloc(length);
+    fread(data, 1, length, fp);
+
+    fclose(fp);
+
+    // use a heuristic to detect potential apple PVRTC formats
+    if(countBits(length)==1)
+    {
+        // very likely to be apple PVRTC
+        if(loadApplePVRTC(data, length))
+            return PVR_LOAD_OKAY;
+    }
+    if (length < 4) {
+      return PVR_LOAD_INVALID_FILE;
+    }
+    // Detect which PVR file it is
+    uint32_t *magic = reinterpret_cast<uint32_t*>(data);
+    if (magic[0] == 0x03525650) {
+      // PVR3 format
+      return loadPVR3(data, length);
+    } else {
+      return loadPVR2(data, length);
+    }
+}
+
+/*******************************************************************************
+  PVR 3 support
+ ******************************************************************************/
+#pragma pack(push, 1)
+struct PVR3Header {
+  uint32_t version;
+  uint32_t flags;
+  union {
+    uint8_t format_chars[8];
+    uint32_t format_split[2];
+    uint64_t format;
+  };
+  uint32_t colorspace;
+  uint32_t channeltype;
+  uint32_t height;
+  uint32_t width;
+  uint32_t depth;
+  uint32_t num_surfaces;
+  uint32_t num_faces;
+  uint32_t mipcount;
+  uint32_t metadata_size;
+};
+#pragma pack(pop)
+
+enum ePVR3Format {
+  kPVR3_PVRTC_2BPP_RGB = 0,
+  kPVR3_PVRTC_2BPP_RGBA = 1,
+  kPVR3_PVRTC_4BPP_RGB = 2,
+  kPVR3_PVRTC_4BPP_RGBA = 3,
+  kPVR3_PVRTC2_2BPP = 4,
+  kPVR3_PVRTC2_4BPP = 5,
+  kPVR3_ETC1 = 6,
+  kPVR3_DXT1 = 7,
+  kPVR3_DXT2 = 8,
+  kPVR3_DXT3 = 9,
+  kPVR3_DXT4 = 10,
+  kPVR3_DXT5 = 11,
+  kPVR3_BC1 = 7,
+  kPVR3_BC2 = 9,
+  kPVR3_BC3 = 11,
+  kPVR3_BC4 = 12,
+  kPVR3_BC5 = 13,
+  kPVR3_BC6 = 14,
+  kPVR3_BC7 = 15,
+  kPVR3_UYVY = 16,
+  kPVR3_YUY2 = 17,
+  kPVR3_BW_1BPP = 18,
+  kPVR3_R9G9B9E5 = 19,
+  kPVR3_RGBG8888 = 20,
+  kPVR3_GRGB8888 = 21,
+  kPVR3_ETC2_RGB = 22,
+  kPVR3_ETC2_RGBA = 23,
+  kPVR3_ETC2_RGB_A1 = 24,
+  kPVR3_EAC_R11_U = 25,
+  kPVR3_EAC_R11_S = 26,
+  kPVR3_EAC_RG11_U = 27,
+  kPVR3_EAC_RG11_S = 28,
+};
+
+static inline char printascii(char in) {
+  if (in >= ' ' && in <= '}') {
+    return in;
+  }
+  return ' ';
+}
+
+struct FormatInfo {
+  uint32_t bpp;
+};
+
+#define PVR3TAG(a, b, c, d, e, f, g, h) (\
+    (static_cast<uint64_t>(a) << 56) | \
+    (static_cast<uint64_t>(b) << 48) | \
+    (static_cast<uint64_t>(c) << 40) | \
+    (static_cast<uint64_t>(d) << 32) | \
+    (static_cast<uint64_t>(e) << 24) | \
+    (static_cast<uint64_t>(f) << 16) | \
+    (static_cast<uint64_t>(g) << 8) | \
+    (static_cast<uint64_t>(h) << 0) )
+
+
+static const std::map<uint64_t, FormatInfo> kFormats({
+  {PVR3TAG(0, 0, 0, 8,   0,   0,   0, 'i'), {8}},
+  {PVR3TAG(0, 0, 8, 8,   0,   0, 'i', 'a'), {16}},
+  {PVR3TAG(0, 5, 6, 5,   0, 'b', 'g', 'r'), {16}},
+  {PVR3TAG(4, 4, 4, 4, 'a', 'b', 'g', 'r'), {16}},
+  {PVR3TAG(0, 8, 8, 8,   0, 'b', 'g', 'r'), {24}},
+  {PVR3TAG(8, 8, 8, 8, 'a', 'b', 'g', 'r'), {32}},
+  {PVR3TAG(0, 0, 0, 0,   0,   0,   0,   kPVR3_PVRTC_2BPP_RGB), {2}},
+  {PVR3TAG(0, 0, 0, 0,   0,   0,   0,   kPVR3_PVRTC_2BPP_RGBA), {2}},
+  {PVR3TAG(0, 0, 0, 0,   0,   0,   0,   kPVR3_PVRTC_4BPP_RGB), {4}},
+  {PVR3TAG(0, 0, 0, 0,   0,   0,   0,   kPVR3_PVRTC_4BPP_RGBA), {4}},
+});
+
+ePVRLoadResult PVRTexture::loadPVR3(uint8_t *data, int length) {
+  if (length < sizeof(PVR3Header)) {
+    return PVR_LOAD_INVALID_FILE;
+  }
+  PVR3Header *header = reinterpret_cast<PVR3Header*>(data);
+  if (header->version != 0x03525650) {
+    printf("PVR3: invalid header!\n");
+    return PVR_LOAD_INVALID_FILE;
+  }
+  // Determine the format
+  auto fit = kFormats.find(header->format);
+  FormatInfo format;
+  if (fit != kFormats.end()) {
+    format = fit->second;
+  } else {
+    // More complicated or unsupported format!
+    char a = printascii(header->format_chars[0]);
+    char b = printascii(header->format_chars[1]);
+    char c = printascii(header->format_chars[2]);
+    char d = printascii(header->format_chars[3]);
+    int e = header->format_chars[4];
+    int f = header->format_chars[5];
+    int g = header->format_chars[6];
+    int h = header->format_chars[7];
+    printf("Unsupported PVR3 format: 0x%08x ('%c%c%c%c') 0x%08x (%i%i%i%i)\n", header->format_split[0], a, b, c, d, header->format_split[1], e, f, g, h);
+    return PVR_LOAD_UNKNOWN_TYPE;
+  }
+  // Compute data size
+  this->width = header->width;
+  this->height = header->height;
+  this->numMips = header->mipcount;
+  this->bpp = format.bpp;
+  this->should_flip = false;
+  printf("Width: %i\n", this->width);
+  printf("Height: %i\n", this->height);
+  printf("BPP: %i\n", this->bpp);
+  this->data = (uint8_t*)malloc(this->width*this->height*4);
+  // Read
+  uint8_t *p = data + sizeof(PVR3Header) + header->metadata_size;
+  switch (header->format) {
+  case PVR3TAG(0, 0, 0, 8,   0,   0,   0, 'i'): {
+    uint8_t *in  = p;
+    uint8_t *out = this->data;
+    for(int y=0; y<this->height; ++y)
+    for(int x=0; x<this->width; ++x)
+    {
+        int i = *in++;
+
+        *out++ = i;
+        *out++ = i;
+        *out++ = i;
+        *out++ = 255;
+    }
+    break;
+  }
+  case PVR3TAG(0, 0, 8, 8,   0,   0, 'i', 'a'): {
+    uint8_t *in  = p;
+    uint8_t *out = this->data;
+    for(int y=0; y<this->height; ++y)
+    for(int x=0; x<this->width; ++x)
+    {
+        int i = *in++;
+        int a = *in++;
+
+        *out++ = i;
+        *out++ = i;
+        *out++ = i;
+        *out++ = a;
+    }
+    break;
+  }
+  case PVR3TAG(4, 4, 4, 4, 'a', 'b', 'g', 'r'): {
+    uint8_t *in  = p;
+    uint8_t *out = this->data;
+    for(int y=0; y<this->height; ++y) {
+      for(int x=0; x<this->width; ++x) {
+        int v1 = *in++;
+        int v2 = *in++;
+        uint8_t a = (v1&0x0f)<<4;
+        uint8_t b = (v1&0xf0);
+        uint8_t g = (v2&0x0f)<<4;
+        uint8_t r = (v2&0xf0);
+        *out++ = r;
+        *out++ = g;
+        *out++ = b;
+        *out++ = a;
+      }
+    }
+    break;
+  }
+  case PVR3TAG(0, 8, 8, 8,  0, 'b', 'g', 'r'): {
+    uint8_t *in  = p;
+    uint8_t *out = this->data;
+    for(int y=0; y<this->height; ++y)
+    for(int x=0; x<this->width; ++x) {
+      *out++ = *in++;
+      *out++ = *in++;
+      *out++ = *in++;
+      *out++ = 255;
+    }
+    break;
+  }
+  case PVR3TAG(8, 8, 8, 8, 'a', 'b', 'g', 'r'): {
+    uint8_t *in  = p;
+    uint8_t *out = this->data;
+    for(int y=0; y<this->height; ++y)
+    for(int x=0; x<this->width; ++x) {
+      *out++ = *in++;
+      *out++ = *in++;
+      *out++ = *in++;
+      *out++ = *in++;
+    }
+    break;
+  }
+  case PVR3TAG(0, 5, 6, 5,   0, 'b', 'g', 'r'): {
+    uint8_t *in  = p;
+    uint8_t *out = this->data;
+    for(int y=0; y<this->height; ++y) {
+      for(int x=0; x<this->width; ++x) {
+        short v = *(short*)in;
+        in += 2;
+        uint8_t b = (v&0x001f)<<3;
+        uint8_t g = (v&0x07e0)>>3;
+        uint8_t r = (v&0xf800)>>8;
+        uint8_t a = 255;
+        *out++ = r;
+        *out++ = g;
+        *out++ = b;
+        *out++ = a;
+      }
+    }
+    break;
+  }
+  case PVR3TAG(0, 0, 0, 0,   0,   0,   0, kPVR3_PVRTC_2BPP_RGB): {
+    Decompress((AMTC_BLOCK_STRUCT*)p, 1, this->width, this->height, 1, this->data);
+    break;
+  }
+  case PVR3TAG(0, 0, 0, 0,   0,   0,   0, kPVR3_PVRTC_4BPP_RGB): {
+    Decompress((AMTC_BLOCK_STRUCT*)p, 0, this->width, this->height, 1, this->data);
+    break;
+  }
+  case PVR3TAG(0, 0, 0, 0,   0,   0,   0, kPVR3_PVRTC_2BPP_RGBA): {
+    Decompress((AMTC_BLOCK_STRUCT*)p, 1, this->width, this->height, 1, this->data);
+    break;
+  }
+  case PVR3TAG(0, 0, 0, 0,   0,   0,   0, kPVR3_PVRTC_4BPP_RGBA): {
+    Decompress((AMTC_BLOCK_STRUCT*)p, 0, this->width, this->height, 1, this->data);
+    break;
+  }
+  default: {
+    // More complicated or unsupported format!
+    char a = printascii(header->format_chars[0]);
+    char b = printascii(header->format_chars[1]);
+    char c = printascii(header->format_chars[2]);
+    char d = printascii(header->format_chars[3]);
+    int e = header->format_chars[4];
+    int f = header->format_chars[5];
+    int g = header->format_chars[6];
+    int h = header->format_chars[7];
+    printf("Unsupported PVR3 format: 0x%08x ('%c%c%c%c') 0x%08x (%i%i%i%i)\n", header->format_split[0], a, b, c, d, header->format_split[1], e, f, g, h);
+    return PVR_LOAD_UNKNOWN_TYPE;
+  }
+  }
+  return PVR_LOAD_OKAY;
+}
+

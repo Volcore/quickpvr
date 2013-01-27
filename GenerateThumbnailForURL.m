@@ -82,12 +82,16 @@ extern "C" OSStatus GenerateThumbnailForURL(void *thisInterface, QLThumbnailRequ
 			    CGImageRef image = CGImageCreate(w, h, bitsPerComponent, 
 			    	bitsPerPixel, bytesPerRow, colorSpaceRef, bitmapInfo, provider, 
 			    	NULL, NO, renderingIntent);
-			    CGContextTranslateCTM(cgContext, 0.0f, h);
-                CGContextScaleCTM(cgContext, 1.0f, -1.0f);
+          if (pvr.should_flip == true) {
+            CGContextTranslateCTM(cgContext, 0.0f, h);
+            CGContextScaleCTM(cgContext, 1.0f, -1.0f);
+          }
 			    CGContextDrawImage((CGContext*)[context graphicsPort], CGRectMake(0,0,w-1,h-1), image);
-                CGContextScaleCTM(cgContext, 1.0f, -1.0f);
-			    CGContextTranslateCTM(cgContext, 0.0f, -h);
-            }
+          if (pvr.should_flip == true) {
+            CGContextScaleCTM(cgContext, 1.0f, -1.0f);
+            CGContextTranslateCTM(cgContext, 0.0f, -h);
+          }
+      }
 			[context restoreGraphicsState];
 			[NSGraphicsContext restoreGraphicsState];
 		}

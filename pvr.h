@@ -61,6 +61,8 @@ struct PVRTexture
     PVRTexture();
     ~PVRTexture();
     ePVRLoadResult load(const char *const path);
+    ePVRLoadResult loadPVR2(uint8_t* data, int size);
+    ePVRLoadResult loadPVR3(uint8_t* data, int size);
 
     bool loadApplePVRTC(uint8_t* data, int size);
 
@@ -69,6 +71,7 @@ struct PVRTexture
     unsigned int numMips;
     unsigned int bpp;
     const char *format;
+    bool should_flip = true;
 
     uint8_t *data;
 };
