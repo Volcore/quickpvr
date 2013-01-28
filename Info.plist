@@ -28,7 +28,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1</string>
 	<key>CFBundleVersion</key>
-	<string>1.0</string>
+	<string>4</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>
@@ -57,27 +57,26 @@
 	<false/>
 	<key>QLThumbnailMinimumSize</key>
 	<real>17</real>
-
-    <key>UTExportedTypeDeclarations</key>
-        <array>
-            <dict>
-                <key>UTTypeIdentifier</key>
-                <string>public.pvr</string>
-                <key>UTTypeDescription</key>
-                <string>PVR image container</string>
-                <key>UTTypeConformsTo</key>
-                <array>
-                    <string>public.image</string>
-                    <string>public.data</string>
-                </array>
-                <key>UTTypeTagSpecification</key>
-                <dict>
-                    <key>public.filename-extension</key>
-                    <array>
-                        <string>pvr</string>
-                    </array>
-                </dict>
-            </dict>
-        </array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.image</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>PVR image container</string>
+			<key>UTTypeIdentifier</key>
+			<string>public.pvr</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>pvr</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 </dict>
 </plist>
